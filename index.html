@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fluid Leakage Detection Smart System</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        h1 { font-weight: bold; }
+        .sensor { margin: 20px; }
+        .switch { margin: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Fluid Leakage Detection Smart System</h1>
+    <div class="sensor">
+        <p>Pressure Sensor 1: <span id="sensor1">0</span> psi</p>
+        <p>Pressure Sensor 2: <span id="sensor2">0</span> psi</p>
+        <p>Difference: <span id="difference">0</span> psi</p>
+    </div>
+    <div class="switch">
+        <label>
+            Solenoid Valve 1:
+            <input type="checkbox" id="valve1" onchange="setValve(1)">
+        </label>
+        <label>
+            Solenoid Valve 2:
+            <input type="checkbox" id="valve2" onchange="setValve(2)">
+        </label>
+    </div>
+    <script>
+        function updateSensors() {
+            fetch('/get_sensors')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('sensor1').innerText = data.sensor1;
+                    document.getElementById('sensor2').innerText = data.sensor2;
+                    document.getElementById('difference').innerText = data.difference;
+                });
+        }
+
+        function setValve(valve) {
+            const state = document.getElementById('valve' + valve).checked ? 1 : 0;
+            fetch('/set_valve?valve=' + valve + '&state=' + state)
+                .then(response => response.text())
+                .then(data => {
+                    console.log(data);
+                });
+        }
+
+        setInterval(updateSensors, 1000);
+    </script>
+</body>
+</html>
