@@ -1,163 +1,46 @@
-from micropython import const
-import network
-import socket
-from machine import Pin, Timer, I2C, ADC
-import socket
-import json
-import gc
-import i2c_lcd
-import time
-import random
+'''
+Main Routine
+'''
+from gas_sensors import GasSensors
+from valves import Valves
+from control import AutoControl
+from server import Server
+from display import Display
+from time import sleep
 
-# Access Point Parameters
-SSID = const("Gas Detector_Controller")
-PASSWORD = const("12345678")
-
-# Setup LED to display server working status, if blinking then it's working
-led = Pin(14, Pin.OUT)
-tim = Timer(-1)
-
-# # Setup I2C_LCD Screen
-# i2c = I2C(scl=Pin(5), sda=Pin(4), freq=20000)
-# display = i2c_lcd.Display(i2c)
-# display.home()
-# display.write("System ON!")
-
-# Setup the solenoid valves 
-valve1 = Pin(13, Pin.OUT)
-valve2 = Pin(12, Pin.OUT)
-valve1.off()
-valve2.off()
-
-# ADC pin to read the sensor
-sensor1 = ADC(0)
-sensor1_value = 0
-sensor2_value = sensor1_value + 3
-
-def read_sensors():
-    global sensor1_value, sensor2_value
-    # sensor1_value += 1
-    # sensor2_value += 2
-    
-    # sensor1_value = int(sensor1.read()/100)
-    sensor1_value = random.getrandbits(3) + 10
-    sensor2_value = sensor1_value - random.getrandbits(2) 
-
-    return sensor1_value, sensor2_value
-
-def setup_access_point():
-    '''
-    set up the Access Point
-    '''
-    # global SSID, PASSWORD, display
-    global SSID, PASSWORD
-    station = network.WLAN(network.AP_IF)
-    station.active(True)
-    station.config(ssid=SSID, password=PASSWORD)
-
-    while not station.active():
-        pass
-
-    print('Access Point Active!')
-    # display.home()
-    # display.write("AP Active!      ")
-    print(station.ifconfig())
-    # display.move(0, 1)
-    # display.write(f"{station.ifconfig()[0]}")
-
-    time.sleep(3)
-
-def web_page():
-    '''
-    return the HTML page
-    '''
-    with open('index.html', 'r') as f:
-        web_page = f.read()
-
-    return web_page
-
-def run_server():
-    '''
-    Hosting the web page and processing HTML requests
-    '''
-    # global display
-
-    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
-    s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(addr)
-    s.listen(1)  # Reduce the backlog to minimize memory usage
-    print('Listening on', addr)
-
-    # display.home()
+def main():
+    # Input, Output, Monitoring Inits
+    gas_sensors = GasSensors()
+    valves = Valves()
+    server = Server()
+    display = Display()
 
     while True:
-        tim.init(period=500, mode=Timer.PERIODIC, callback=lambda t: led.value(not led.value()))
 
-        try:
-
-            conn, addr = s.accept()
-            print('Got a connection from %s' % str(addr))
-            request = conn.recv(1024)
-            request = str(request)
-            print(request, end='\n\n')
-
-            if '/get_sensors' in request:
-                sensor1, sensor2 = read_sensors()
-                difference = abs(sensor1 - sensor2)
-                response = json.dumps({
-                    "sensor1": sensor1,
-                    "sensor2": sensor2,
-                    "difference": difference
-                })
-                conn.send('HTTP/1.1 200 OK\n')
-                conn.send('Content-Type: application/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-
-                # display.move(0, 0)
-                # display.write(f"S1 {sensor1}, S2 {sensor2}")
-
-            elif '/set_valve?valve=1' in request:
-                valve1.value(not valve1.value())
-                response = 'Valve 1 toggled'
-                conn.send('HTTP/1.1 200 OK\n')
-                conn.send('Content-Type: text/plain\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-
-                # display.move(0, 1)
-                # display.write(f"V1: {valve1.value()}")
-
-            elif '/set_valve?valve=2' in request:
-                valve2.value(not valve2.value())
-                response = 'Valve 2 toggled'
-                conn.send('HTTP/1.1 200 OK\n')
-                conn.send('Content-Type: text/plain\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-
-                # display.move(7, 1)
-                # display.write(f"V2: {valve2.value()}")
-
-            else:
-                response = web_page()
-                conn.send('HTTP/1.1 200 OK\n')
-                conn.send('Content-Type: text/html\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-
-                led.off()
+        ### Read Input Sensor values ###
+        gas_sensors.read()
+        server.sensors_dict.update(gas_sensors.values_dict)
         
-        except Exception as e:
-            print(f"Error: {e}")
-            tim.deinit()
+        ### Host Server ###
+        server.wait_for_client()
+        server.handle_html_request(server.identify_html_request())
 
-        finally:
-            conn.close()
-            gc.collect()
+        ### Handle Output Valve values ###
+        # Manual Mode
+        if server.actuators_dict['mode'] == 'manual':
+            valves.update_valuestobe_from_dict(server.actuators_dict)
+            valves.execute_tobe()
+        # Auto Mode
+        elif server.actuators_dict['mode'] == 'auto':
+            AutoControl(gas_sensors, valves)
 
-    tim.deinit()
+        ### Show in OLED ###
+        display.show_latest(server.actuators_dict, server.sensors_dict)
 
-setup_access_point()
-run_server()
+        ### Toggle LED to show System is Operational ###
+        server.led.value(not server.led.value())
+
+        print('\n')
+
+sleep(4)
+main()

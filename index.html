@@ -1,48 +1,130 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fluid Leakage Detection Smart System</title>
     <style>
-        body { text-align: center; font-family: Arial, sans-serif; }
-        h1 { font-weight: bold; }
-        .sensor { margin: 20px; }
-        .switch { margin: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .switch {
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+            position: relative;
+        }
+        .switch input {
+            display: none;
+        }
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .container {
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .label {
+            margin: 10px 0;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <h1>Fluid Leakage Detection Smart System</h1>
-    <div class="sensor">
-        <p>Pressure Sensor 1: <span id="sensor1">0</span> psi</p>
-        <p>Pressure Sensor 2: <span id="sensor2">0</span> psi</p>
-        <p>Difference: <span id="difference">0</span> psi</p>
+    <div class="container">
+        <label class="switch">
+            <input type="checkbox" id="modeSwitch">
+            <span class="slider"></span>
+        </label>
+        <span>Auto/Manual Mode</span>
     </div>
-    <div class="switch">
-        <label>
-            Solenoid Valve 1:
-            <input type="checkbox" id="valve1" onchange="setValve(1)">
+    <div class="container">
+        <div class="label" id="sensor1">Gas Pressure Sensor 1: </div>
+        <div class="label" id="sensor2">Gas Pressure Sensor 2: </div>
+        <div class="label" id="pressureDiff">Pressure Difference: </div>
+    </div>
+    <div class="container">
+        <label class="switch">
+            <input type="checkbox" id="valve1">
+            <span class="slider"></span>
         </label>
-        <label>
-            Solenoid Valve 2:
-            <input type="checkbox" id="valve2" onchange="setValve(2)">
+        <span>Solenoid Valve 1</span>
+    </div>
+    <div class="container">
+        <label class="switch">
+            <input type="checkbox" id="valve2">
+            <span class="slider"></span>
         </label>
+        <span>Solenoid Valve 2</span>
     </div>
     <script>
+        document.getElementById('modeSwitch').addEventListener('change', function() {
+            fetch('/mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: this.checked ? 'auto' : 'manual' })
+            });
+        });
+
+        document.getElementById('valve1').addEventListener('change', function() {
+            fetch('/valve1', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valve1: this.checked ? 'open' : 'close' })
+            });
+        });
+
+        document.getElementById('valve2').addEventListener('change', function() {
+            fetch('/valve2', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valve2: this.checked ? 'open' : 'close' })
+            });
+        });
+
         function updateSensors() {
-            fetch('/get_sensors')
+            fetch('/sensor_data')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('sensor1').innerText = data.sensor1;
-                    document.getElementById('sensor2').innerText = data.sensor2;
-                    document.getElementById('difference').innerText = data.difference;
-                });
-        }
-
-        function setValve(valve) {
-            const state = document.getElementById('valve' + valve).checked ? 1 : 0;
-            fetch('/set_valve?valve=' + valve + '&state=' + state)
-                .then(response => response.text())
-                .then(data => {
-                    console.log(data);
+                    document.getElementById('sensor1').textContent = 'Gas Pressure Sensor 1: ' + data.sensor1;
+                    document.getElementById('sensor2').textContent = 'Gas Pressure Sensor 2: ' + data.sensor2;
+                    document.getElementById('pressureDiff').textContent = 'Pressure Difference: ' + data.pressureDiff;
                 });
         }
 
