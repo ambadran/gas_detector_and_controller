@@ -155,7 +155,7 @@ class Server:
         '''
         try:
             if html_request is not None:
-                print(f"Got Request:\n{self.request}")
+                print(f"Got Request:\n{self.request.split(' ')[:2]}")
                 self.HANDLE_HTML_REQUEST[html_request]()
         
             else:
@@ -195,9 +195,6 @@ class Server:
         '''
         length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
         body = eval(self.client.recv(length).decode('utf-8'))
-
-        print(body)
-        print(type(body))
 
         self.actuators_dict.update(body) 
 

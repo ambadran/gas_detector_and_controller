@@ -2,7 +2,7 @@
 Abstraction for OLED Display
 '''
 from machine import Pin, I2C
-from ssd1306 import SSD1306_I2C
+from sh1106 import SH1106_I2C
 
 class Display:
     '''
@@ -10,7 +10,10 @@ class Display:
     '''
     def __init__(self):
         self.i2c = I2C(scl=Pin(5), sda=Pin(4))
-        self.display = SSD1306_I2C(128, 64, self.i2c)
+        self.display = SH1106_I2C(128, 64, self.i2c)
+
+        self.display.fill(0)
+        self.display.show()
 
     def show_latest(self, actuators_dict, sensors_dict):
         '''

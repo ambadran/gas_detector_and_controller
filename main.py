@@ -12,8 +12,8 @@ def main():
     # Input, Output, Monitoring Inits
     gas_sensors = GasSensors()
     valves = Valves()
-    server = Server()
     display = Display()
+    server = Server()
 
     while True:
 
@@ -36,6 +36,10 @@ def main():
 
         ### Show in OLED ###
         display.show_latest(server.actuators_dict, server.sensors_dict)
+
+        ### Show in UART ###
+        print(server.actuators_dict)
+        print(server.sensors_dict)
 
         ### Toggle LED to show System is Operational ###
         server.led.value(not server.led.value())
