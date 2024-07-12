@@ -63,21 +63,6 @@
             margin: 10px 0;
             text-align: center;
         }
-        .textbox-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .textbox {
-            margin: 10px 0;
-            padding: 5px;
-            font-size: 16px;
-        }
-        .button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -91,10 +76,7 @@
     </div>
     <div class="container">
         <div class="label" id="sensor1">Gas Pressure Sensor 1: </div>
-        <div class="textbox-container">
-            <input type="text" id="sensor2Input" class="textbox" placeholder="Enter Gas Pressure Sensor 2 value">
-            <button class="button" id="sensor2Button">Submit Sensor 2 Value</button>
-        </div>
+        <div class="label" id="sensor2">Gas Pressure Sensor 2: </div>
         <div class="label" id="pressureDiff">Pressure Difference: </div>
     </div>
     <div class="container">
@@ -136,20 +118,12 @@
             });
         });
 
-        document.getElementById('sensor2Button').addEventListener('click', function() {
-            const sensor2Value = document.getElementById('sensor2Input').value;
-            fetch('/sensor2', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sensor2: sensor2Value })
-            });
-        });
-
         function updateSensors() {
             fetch('/sensor_data')
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('sensor1').textContent = 'Gas Pressure Sensor 1: ' + data.sensor1;
+                    document.getElementById('sensor2').textContent = 'Gas Pressure Sensor 2: ' + data.sensor2;
                     document.getElementById('pressureDiff').textContent = 'Pressure Difference: ' + data.pressureDiff;
                 });
         }

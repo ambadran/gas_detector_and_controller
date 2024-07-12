@@ -15,12 +15,13 @@ import network
 import socket
 import json
 from time import sleep, sleep_ms
-# import random
+# import gc
 
 class HTML_REQUEST:
     GET_WEB = 0
     GET_SENSORS = 1
     POST_SWITCHES = 2
+    POST_SENSOR2 = 3
 
 class Server:
     # Access Point Parameters
@@ -39,9 +40,9 @@ class Server:
         self.init_socket()
 
         self.sensors_dict = {
-                'sensor1': 1,
-                'sensor2': 2,
-                'pressureDiff': 4
+                'sensor1': 0,
+                'sensor2': 0,
+                'pressureDiff': 0
                 }
 
         self.actuators_dict = {
@@ -56,13 +57,15 @@ class Server:
                 'POST /mode': HTML_REQUEST.POST_SWITCHES,
                 'POST /valve1': HTML_REQUEST.POST_SWITCHES,
                 'POST /valve2': HTML_REQUEST.POST_SWITCHES,
+                'POST /sensor2': HTML_REQUEST.POST_SENSOR2
 
                 } 
 
         self.HANDLE_HTML_REQUEST = {
                 HTML_REQUEST.GET_WEB: self.handle_get_web,
                 HTML_REQUEST.GET_SENSORS: self.handle_get_sensor_data,
-                HTML_REQUEST.POST_SWITCHES: self.handle_post_actuator_states
+                HTML_REQUEST.POST_SWITCHES: self.handle_post_actuator_states,
+                HTML_REQUEST.POST_SENSOR2: self.handle_post_sensor2_value
                 }
  
     def reset(self):
@@ -153,32 +156,43 @@ class Server:
         '''
         handles the identified html request
         '''
-        try:
-            if html_request is not None:
-                print(f"Got Request:\n{self.request.split(' ')[:2]}")
-                self.HANDLE_HTML_REQUEST[html_request]()
-        
-            else:
-                self.handle_unkonwn_request()
-                print(f"Got unkonwn Request:\n{self.request}")
+        # try:
+        if html_request is not None:
+            print(f"Got Request:\n{self.request.split(' ')[:2]}")
+            self.HANDLE_HTML_REQUEST[html_request]()
+    
+        else:
+            self.handle_unkonwn_request()
+            print(f"Got unkonwn Request:\n{self.request}")
 
-        except Exception as e:
-            print(f"Error in handle web get request: {e}")
-            print(f"html request detected: {html_request}")
-            print(f"Raw html request:\n{self.request}")
+        # except Exception as e:
+        #     print(f"Error in handle web get request: {e}")
+        #     print(f"html request detected: {html_request}")
+        #     print(f"Raw html request:\n{self.request}")
 
-        finally:
-            self.client.close()
+        # finally:
+        #     self.client.close()
+        self.client.close()
 
-    def handle_get_web(self):
+    def handle_get_web(self, chunk_size=1024):
         '''
         Handles GET_ACTUATORS_WEB HTML GET Request
-        '''
-        with open('index.html', 'r') as f:
-            web_page = f.read()
 
-        self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
-        self.client.sendall(web_page)
+        sending the web app in chunks so that I don't consume all memory
+        '''
+        try:
+            self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
+            with open('index.html', 'r') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+
+                    self.client.sendall(chunk)
+
+        except MemoryError:
+            print("MemoryError: memory allocation error in sending web page")
+
 
     def handle_get_sensor_data(self):
         '''
@@ -193,13 +207,51 @@ class Server:
         '''
 
         '''
+        # Receiving the JSON data from the POST request
         length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
-        body = eval(self.client.recv(length).decode('utf-8'))
+        try:
+            body = eval(self.client.recv(length).decode('utf-8'))  # supposed to output a dict
+        except SyntaxError:
+            print("failed to convert json to dict, probably connection issue, ignoring")
+            response = 'HTTP/1.1 200 OK\r\n\r\n'
+            self.client.send(response)
+            return None
+        print(body)
 
+        # Updating the server actuators_dict
         self.actuators_dict.update(body) 
 
+        # sending response successful
         response = 'HTTP/1.1 200 OK\r\n\r\n'
         self.client.send(response)
+
+    def handle_post_sensor2_value(self):
+        '''
+
+        '''
+        length = int(self.request.split('Content-Length: ')[1].split('\r\n')[0])
+        try:
+            body = eval(self.client.recv(length).decode('utf-8'))  # supposed to output a dict
+        except SyntaxError:
+            print("failed to convert json to dict, probably connection issue, ignoring")
+            response = 'HTTP/1.1 200 OK\r\n\r\n'
+            self.client.send(response)
+            return None
+
+        # type casting the JSON String sensor2 value into an int
+        try:
+            body['sensor2'] = int(body['sensor2'])
+        except ValueError:
+            print("ValueError: Couldn't convert sensor2 str value to int, I hope its just a connection issue!")
+        print(body)
+
+        # Updating the server sensors_dict
+        self.sensors_dict.update(body) 
+
+        # sending response successful
+        response = 'HTTP/1.1 200 OK\r\n\r\n'
+        self.client.send(response)
+
 
     def handle_unkonwn_request(self):
         '''
@@ -207,5 +259,15 @@ class Server:
         '''
         self.client.send('HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n')
         self.client.send('HTTP/1.1 404 Not Found\r\n\r\nFile Not Found')
+
+
+    def update_valves_values(self, valve_states: tuple[int, int]):
+        '''
+        updates the valves values in Auto Mode to show on screen
+        '''
+        #TODO: make it also update the switches in HTML web page
+        INT_TO_VALVE_STATE = {0: 'close', 1: 'open'}
+        self.actuators_dict['valve1'] = INT_TO_VALVE_STATE[valve_states[0]]
+        self.actuators_dict['valve2'] = INT_TO_VALVE_STATE[valve_states[1]]
 
 

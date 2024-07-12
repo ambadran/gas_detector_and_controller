@@ -37,4 +37,10 @@ class Valves:
         self.v1_tobe = self.TEXT_TO_VALUE[dict_['valve1']]
         self.v2_tobe = self.TEXT_TO_VALUE[dict_['valve2']]
 
+    @property
+    def states(self) -> tuple[int, int]:
+        '''
+        returns a tuple of the current states of the valves
+        '''
+        return (self.v1.value(), self.v2.value())
 

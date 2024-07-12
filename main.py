@@ -18,8 +18,8 @@ def main():
     while True:
 
         ### Read Input Sensor values ###
-        gas_sensors.read()
-        server.sensors_dict.update(gas_sensors.values_dict)
+        gas_sensors.read(server.sensors_dict['sensor2'])  # inputing server sensor2 reading
+        server.sensors_dict.update(gas_sensors.values_dict)  # sensor1 and difference
         
         ### Host Server ###
         server.wait_for_client()
@@ -33,6 +33,7 @@ def main():
         # Auto Mode
         elif server.actuators_dict['mode'] == 'auto':
             AutoControl(gas_sensors, valves)
+            server.update_valves_values(valves.states)
 
         ### Show in OLED ###
         display.show_latest(server.actuators_dict, server.sensors_dict)
