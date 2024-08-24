@@ -55,6 +55,8 @@ class GasSensor:
         converts ADC value to voltage to kpa
         '''
         self.latest_value = self.voltage_to_pressure_kpa(self.adc_to_voltage(self.latest_value))
+        # self.latest_value = 995 + getrandbits(4)
+        # self.latest_value = 0
         return self.latest_value
 
 class GasSensors:
